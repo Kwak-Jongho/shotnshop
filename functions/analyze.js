@@ -1,10 +1,9 @@
-// functions/analyze.js (Cloudflare Pages Functions 형식)
+// functions/analyze.js
+// Cloudflare Pages Functions 전용 백엔드 코드
 
 export async function onRequestPost(context) {
-  // context.request 에는 클라이언트(앱)가 보낸 데이터가 들어있고,
-  // context.env 에는 Cloudflare 대시보드에서 설정할 환경변수(API KEY)가 들어있습니다.
   const { request, env } = context;
-  const API_KEY = env.ANTHROPIC_API_KEY;
+  const API_KEY = env.ANTHROPIC_API_KEY; // Cloudflare 환경변수에서 읽어옴
 
   if (!API_KEY) {
     return new Response(JSON.stringify({ error: 'API key not configured' }), { 
@@ -14,7 +13,8 @@ export async function onRequestPost(context) {
   }
 
   try {
-    const { mode, image, query, system } = await request.json();
+    const body = await request.json();
+    const { mode, image, query, system } = body;
 
     let messages;
     if (mode === 'image' && image) {
@@ -48,6 +48,12 @@ export async function onRequestPost(context) {
     });
 
     const data = await response.json();
+    
+    // API 호출 자체에서 에러가 발생했을 경우의 예외 처리
+    if (data.error) {
+      throw new Error(data.error.message || 'Anthropic API 연동 에러');
+    }
+
     const raw = data.content?.map(b => b.text || '').join('').trim();
     const clean = raw.replace(/```json|```/g, '').trim();
     const parsed = JSON.parse(clean);
